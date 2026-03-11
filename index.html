@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EditGPT - Editable Chat</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: #343541;
+            color: #ececf1;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 12px 20px;
+            background-color: #202123;
+            border-bottom: 1px solid #4d4d4f;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .api-key-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .api-key-section input {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #4d4d4f;
+            background-color: #40414f;
+            color: #ececf1;
+            font-size: 14px;
+            width: 300px;
+        }
+
+        .api-key-section input::placeholder {
+            color: #8e8ea0;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 150px;
+        }
+
+        .message {
+            padding: 24px 0;
+            border-bottom: 1px solid #4d4d4f;
+        }
+
+        .message.user {
+            background-color: #343541;
+        }
+
+        .message.assistant {
+            background-color: #444654;
+        }
+
+        .message-content {
+            max-width: 768px;
+            margin: 0 auto;
+            padding: 0 24px;
+            display: flex;
+            gap: 16px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .user .avatar {
+            background-color: #5436da;
+        }
+
+        .assistant .avatar {
+            background-color: #19c37d;
+        }
+
+        .message-body {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-text {
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-text p {
+            margin-bottom: 12px;
+        }
+
+        .message-text p:last-child {
+            margin-bottom: 0;
+        }
+
+        .message-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .message:hover .message-actions {
+            opacity: 1;
+        }
+
+        .message-actions button {
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: 1px solid #4d4d4f;
+            background-color: transparent;
+            color: #ececf1;
+            font-size: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .message-actions button:hover {
+            background-color: #4d4d4f;
+        }
+
+        .edit-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid #4d4d4f;
+            background-color: #40414f;
+            color: #ececf1;
+            font-family: inherit;
+            font-size: 16px;
+            line-height: 1.6;
+            resize: vertical;
+        }
+
+        .edit-actions {
+            margin-top: 12px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .edit-actions button {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .edit-actions .save-btn {
+            background-color: #19c37d;
+            color: white;
+        }
+
+        .edit-actions .save-btn:hover {
+            background-color: #1a9d68;
+        }
+
+        .edit-actions .cancel-btn {
+            background-color: #4d4d4f;
+            color: #ececf1;
+        }
+
+        .edit-actions .cancel-btn:hover {
+            background-color: #5d5d5f;
+        }
+
+        .input-container {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 24px;
+            background: linear-gradient(transparent, #343541 20%);
+        }
+
+        .input-wrapper {
+            max-width: 768px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .input-wrapper textarea {
+            width: 100%;
+            padding: 16px 50px 16px 16px;
+            border-radius: 12px;
+            border: 1px solid #4d4d4f;
+            background-color: #40414f;
+            color: #ececf1;
+            font-family: inherit;
+            font-size: 16px;
+            line-height: 1.5;
+            resize: none;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .input-wrapper textarea::placeholder {
+            color: #8e8ea0;
+        }
+
+        .input-wrapper textarea:focus {
+            outline: none;
+            border-color: #6d6d7f;
+        }
+
+        .send-button {
+            position: absolute;
+            right: 12px;
+            bottom: 12px;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: none;
+            background-color: #19c37d;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover {
+            background-color: #1a9d68;
+        }
+
+        .send-button:disabled {
+            background-color: #4d4d4f;
+            cursor: not-allowed;
+        }
+
+        .send-button svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 24px;
+        }
+
+        .empty-state h2 {
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .empty-state p {
+            color: #8e8ea0;
+            font-size: 16px;
+        }
+
+        .loading-dots {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .loading-dots span {
+            width: 8px;
+            height: 8px;
+            background-color: #8e8ea0;
+            border-radius: 50%;
+            animation: bounce 1.4s ease-in-out infinite;
+        }
+
+        .loading-dots span:nth-child(1) { animation-delay: 0s; }
+        .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-6px); }
+        }
+
+        .error-message {
+            background-color: #ef4444;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            margin: 12px auto;
+            max-width: 768px;
+        }
+
+        .model-select {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid #4d4d4f;
+            background-color: #40414f;
+            color: #ececf1;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .clear-btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: 1px solid #4d4d4f;
+            background-color: transparent;
+            color: #ececf1;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .clear-btn:hover {
+            background-color: #4d4d4f;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>EditGPT</h1>
+        <div class="api-key-section">
+            <select class="model-select" id="modelSelect">
+                <option value="gpt-5.4">GPT-5.4</option>
+                <option value="gpt-5.4-pro">GPT-5.4 Pro</option>
+                <option value="gpt-5.3-codex">GPT-5.3 Codex</option>
+                <option value="gpt-5.2">GPT-5.2</option>
+                <option value="gpt-5-mini">GPT-5 Mini</option>
+            </select>
+            <input type="password" id="apiKey" placeholder="Enter your OpenAI API key">
+            <button class="clear-btn" onclick="clearChat()">Clear Chat</button>
+        </div>
+    </div>
+
+    <div class="chat-container" id="chatContainer">
+        <div class="empty-state" id="emptyState">
+            <h2>EditGPT</h2>
+            <p>Chat with AI - Edit any message to regenerate the conversation</p>
+        </div>
+    </div>
+
+    <div class="input-container">
+        <div class="input-wrapper">
+            <textarea
+                id="userInput"
+                placeholder="Send a message..."
+                rows="1"
+                onkeydown="handleKeyDown(event)"
+            ></textarea>
+            <button class="send-button" id="sendButton" onclick="sendMessage()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 2L11 13M22 2L15 22L11 13M22 2L2 9L11 13"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let messages = [];
+        let isLoading = false;
+
+        const chatContainer = document.getElementById('chatContainer');
+        const emptyState = document.getElementById('emptyState');
+        const userInput = document.getElementById('userInput');
+        const sendButton = document.getElementById('sendButton');
+        const apiKeyInput = document.getElementById('apiKey');
+        const modelSelect = document.getElementById('modelSelect');
+
+        // Auto-resize textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 200) + 'px';
+        });
+
+        // Load API key from localStorage
+        const savedApiKey = localStorage.getItem('openai_api_key');
+        if (savedApiKey) {
+            apiKeyInput.value = savedApiKey;
+        }
+
+        apiKeyInput.addEventListener('change', function() {
+            localStorage.setItem('openai_api_key', this.value);
+        });
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function renderMessages() {
+            if (messages.length === 0) {
+                chatContainer.innerHTML = '';
+                chatContainer.appendChild(emptyState);
+                emptyState.style.display = 'flex';
+                return;
+            }
+
+            emptyState.style.display = 'none';
+
+            let html = '';
+            messages.forEach((msg, index) => {
+                html += `
+                    <div class="message ${msg.role}" data-index="${index}">
+                        <div class="message-content">
+                            <div class="avatar">${msg.role === 'user' ? 'You' : 'AI'}</div>
+                            <div class="message-body">
+                                <div class="message-text" id="text-${index}">${escapeHtml(msg.content)}</div>
+                                <div class="message-actions">
+                                    <button onclick="startEdit(${index})">Edit</button>
+                                    ${msg.role === 'assistant' ? `<button onclick="regenerate(${index})">Regenerate</button>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            chatContainer.innerHTML = html;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function startEdit(index) {
+            const textEl = document.getElementById(`text-${index}`);
+            const msg = messages[index];
+
+            textEl.innerHTML = `
+                <textarea class="edit-textarea" id="edit-input-${index}">${escapeHtml(msg.content)}</textarea>
+                <div class="edit-actions">
+                    <button class="save-btn" onclick="saveEdit(${index})">Save & Regenerate</button>
+                    <button class="cancel-btn" onclick="cancelEdit(${index})">Cancel</button>
+                </div>
+            `;
+
+            const textarea = document.getElementById(`edit-input-${index}`);
+            textarea.focus();
+            textarea.selectionStart = textarea.value.length;
+        }
+
+        function cancelEdit(index) {
+            const textEl = document.getElementById(`text-${index}`);
+            textEl.innerHTML = escapeHtml(messages[index].content);
+        }
+
+        async function saveEdit(index) {
+            const textarea = document.getElementById(`edit-input-${index}`);
+            const newContent = textarea.value.trim();
+
+            if (!newContent) return;
+
+            // Update the message
+            messages[index].content = newContent;
+
+            // Remove all messages after this one
+            messages = messages.slice(0, index + 1);
+
+            renderMessages();
+
+            // If we edited a user message, regenerate the assistant response
+            if (messages[index].role === 'user') {
+                await generateResponse();
+            }
+        }
+
+        async function regenerate(index) {
+            // Remove this assistant message and all after it
+            messages = messages.slice(0, index);
+            renderMessages();
+
+            // Generate new response
+            await generateResponse();
+        }
+
+        async function sendMessage() {
+            const content = userInput.value.trim();
+            if (!content || isLoading) return;
+
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('Please enter your OpenAI API key');
+                return;
+            }
+
+            // Add user message
+            messages.push({ role: 'user', content });
+            userInput.value = '';
+            userInput.style.height = 'auto';
+
+            renderMessages();
+            await generateResponse();
+        }
+
+        async function generateResponse() {
+            const apiKey = apiKeyInput.value.trim();
+            if (!apiKey) {
+                alert('Please enter your OpenAI API key');
+                return;
+            }
+
+            isLoading = true;
+            sendButton.disabled = true;
+
+            // Add loading indicator
+            const loadingHtml = `
+                <div class="message assistant" id="loading-message">
+                    <div class="message-content">
+                        <div class="avatar">AI</div>
+                        <div class="message-body">
+                            <div class="loading-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            chatContainer.insertAdjacentHTML('beforeend', loadingHtml);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            try {
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelSelect.value,
+                        messages: messages.map(m => ({ role: m.role, content: m.content })),
+                        max_completion_tokens: 4096
+                    })
+                });
+
+                const data = await response.json();
+
+                // Remove loading indicator
+                document.getElementById('loading-message')?.remove();
+
+                if (!response.ok) {
+                    throw new Error(data.error?.message || 'API request failed');
+                }
+
+                const assistantMessage = data.choices[0].message.content;
+                messages.push({ role: 'assistant', content: assistantMessage });
+
+                renderMessages();
+            } catch (error) {
+                document.getElementById('loading-message')?.remove();
+
+                const errorHtml = `<div class="error-message">Error: ${escapeHtml(error.message)}</div>`;
+                chatContainer.insertAdjacentHTML('beforeend', errorHtml);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            } finally {
+                isLoading = false;
+                sendButton.disabled = false;
+            }
+        }
+
+        function clearChat() {
+            messages = [];
+            renderMessages();
+        }
+
+        // Initial render
+        renderMessages();
+    </script>
+</body>
+</html>
